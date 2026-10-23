@@ -1,5 +1,3 @@
-create database if not exists control_gastos_personales;
-use control_gastos_personales;
 
 create table if not exists usuarios (
     id_usuario int auto_increment primary key,
@@ -37,7 +35,15 @@ create table if not exists metas (
     monto_meta decimal(10,2) not null,
     foreign key (id_usuario) references usuarios(id_usuario) on delete cascade
 );
+alter table metas add column fecha_limite date null;
 
+create table if not exists fondos_emergencia (
+    id_usuario int primary key,
+    monto_objetivo decimal(10,2) not null default 500,
+    monto_actual decimal(10,2) not null default 0,
+    meses_objetivo int not null default 6,
+    foreign key (id_usuario) references usuarios(id_usuario) on delete cascade
+);
 -- Consultas útiles (cámbialas por el id que quieras probar):
 -- select * from gastos where categoria = 'alimentacion';
 -- select categoria, sum(cantidad) from gastos where id_usuario = 1 group by categoria;

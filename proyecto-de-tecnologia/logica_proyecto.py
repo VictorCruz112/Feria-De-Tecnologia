@@ -7,13 +7,17 @@ CATEGORIAS = ("alimentacion", "transporte", "educacion", "entretenimiento", "otr
 
 
 def get_conexion():
-    return mysql.connector.connect(
+    config = dict(
         host=os.getenv("DB_HOST", "localhost"),
+        port=int(os.getenv("DB_PORT", "3306")),
         user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD", "Jutta2026"),
+        password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "control_gastos_personales"),
     )
-
+    if os.getenv("DB_SSL") == "1":
+        config["ssl_ca"] = "/etc/ssl/certs/ca-certificates.crt"
+        config["ssl_verify_cert"] = True
+    return mysql.connector.connect(**config)
 
 def consultar(sql, params=(), modo="all"):
     """modo: 'all' (lista), 'one' (una fila) o 'write' (INSERT/UPDATE/DELETE -> (lastrowid, filas))."""

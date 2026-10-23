@@ -286,6 +286,49 @@ def put_meta():
 
     return jsonify(ok=True)
 
+@app.get("/api/reporte-pdf")
+@api_privada
+def reporte_pdf():
+    from io import BytesIO
+    from datetime import date
+    from flask import send_file
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter, landscape
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+
+    gestor = GestorFinanciero(session["uid"])
+    resumen = gestor.calcular_balance()
+    movimientos = gestor.listar_movimientos(limite=500)
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), rightMargin=30, leftMargin=30, topMargin=32, bottomMargin=30)
+    estilos = getSampleStyleSheet()
+    elementos = [Paragraph("Ahorra+ — Reporte financiero", estilos["Title"]),
+                 Paragraph("Generado el " + date.today().strftime("%d/%m/%Y"), estilos["Normal"]),
+                 Spacer(1, 14), Paragraph("Resumen general", estilos["Heading2"])]
+    datos_resumen = [["Total de ingresos", "Total de gastos", "Balance neto"],
+                     [f'${resumen["total_ingresos"]:.2f}', f'${resumen["total_gastos"]:.2f}', f'${resumen["balance_neto"]:.2f}']]
+    tabla_resumen = Table(datos_resumen, colWidths=[220, 220, 220])
+    tabla_resumen.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#30292d")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("GRID", (0,0), (-1,-1), .5, colors.HexColor("#d9b8b8")), ("PADDING", (0,0), (-1,-1), 8)]))
+    elementos += [tabla_resumen, Spacer(1, 18), Paragraph("Historial de movimientos", estilos["Heading2"])]
+    filas = [["Fecha", "Tipo", "Descripción", "Categoría", "Monto"]]
+    for m in movimientos:
+        descripcion = str(m.get("descripcion") or "Movimiento").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        filas.append([str(m.get("fecha") or ""), "Ingreso" if m.get("tipo") == "ingreso" else "Gasto",
+                      Paragraph(descripcion, estilos["BodyText"]), str(m.get("categoria") or "—"),
+                      ("+" if m.get("tipo") == "ingreso" else "-") + f'${float(m.get("cantidad") or 0):.2f}'])
+    tabla = Table(filas, repeatRows=1, colWidths=[75, 65, 300, 105, 85])
+    tabla.setStyle(TableStyle([("BACKGROUND", (0,0), (-1,0), colors.HexColor("#30292d")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white), ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("GRID", (0,0), (-1,-1), .35, colors.HexColor("#c8bfc2")), ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("PADDING", (0,0), (-1,-1), 6)]))
+    elementos.append(tabla)
+    doc.build(elementos)
+    buffer.seek(0)
+    return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name="reporte_ahorra_mas.pdf")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
